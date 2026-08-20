@@ -17,6 +17,8 @@ export function calculatePathAStarFromTop(
     archs: [],
   };
 
+  console.log("CalculatePathASTarFromTop----START")
+
   // Assegno valori dinamici
   let currentNode: Coordinate = firstNode;
   const goalNode: Coordinate = lastNode;
@@ -24,25 +26,34 @@ export function calculatePathAStarFromTop(
   let currentIndex = Math.floor(graph[1].length / 2);
   let currentLevel = 1;
 
+
+  console.log("firstNode [%0]", firstNode);
+  console.log("goalNode [%0]", lastNode);
+  console.log("goalNode [%0]", terrains);
+
   // Concludo al raggiungimento del goal
   while (currentNode !== goalNode) {
+    console.log("Ciclo currentNode [%0]", currentNode);
     // Definisco i valori
     const nextLevel = currentLevel + 1;
     const isLast = graph[nextLevel].includes(goalNode);
 
+    console.log("getCloserNodes");
     // Recupero nodi raggiungibili
     const closerNodes = getCloserNodes(graph, currentLevel, currentIndex);
+    console.log("getCloserNodes.length [%0]", closerNodes.length);
     const nextNodes = isLast
       ? [goalNode]
       : closerNodes.reduce((acc: Coordinate[], nodes) => {
-          acc.push(
-            ...(nodes.filter(
-              (node) => node && node !== prevNode
-            ) as Coordinate[])
-          );
-          return acc;
-        }, []);
+        acc.push(
+          ...(nodes.filter(
+            (node) => node && node !== prevNode
+          ) as Coordinate[])
+        );
+        return acc;
+      }, []);
 
+    console.log("getBestNode");
     // Recupero miglior nodo
     const nextBest = getBestNode(nextNodes, currentNode, goalNode, terrains);
     const [nextNode] = nextBest.nodes;
@@ -84,6 +95,8 @@ function getBestNode(
   toNode: Coordinate,
   terrains: TerrainPolygon[]
 ) {
+
+  console.log("getBestNode nodes[%c] fromNode[%c] toNode[%c] terrains.length[%c]", nodes, fromNode, toNode, terrains.length);
   return nodes.reduce((acc: WeightedPath | null, node) => {
     // Calcolo la percorrenza fino al nodo
     const fromArch = calculateArchWeight(fromNode, node, terrains);
@@ -91,16 +104,16 @@ function getBestNode(
     const toArch =
       node === toNode
         ? {
-            fromNode: toNode,
-            toNode,
-            descending: false,
-            distance: 0,
-            duration: 0,
-            elevation: 0,
-            slope: 0,
-            speed: 0,
-            terrain: [],
-          }
+          fromNode: toNode,
+          toNode,
+          descending: false,
+          distance: 0,
+          duration: 0,
+          elevation: 0,
+          slope: 0,
+          speed: 0,
+          terrain: [],
+        }
         : calculateArchWeight(node, toNode, terrains);
 
     // Scelgo il nodo con minor tempo di percorrenza
@@ -142,20 +155,20 @@ function getCloserNodes(
   closerNodes.unshift(
     reverse && prevLevelNodes
       ? [
-          prevLevelNodes[currentIndex - 1],
-          prevLevelNodes[currentIndex],
-          prevLevelNodes[currentIndex + 1],
-        ]
+        prevLevelNodes[currentIndex - 1],
+        prevLevelNodes[currentIndex],
+        prevLevelNodes[currentIndex + 1],
+      ]
       : []
   );
   // Nodi del livello successivo
   closerNodes.push(
     !reverse && nextLevelNodes
       ? [
-          nextLevelNodes[currentIndex - 1],
-          nextLevelNodes[currentIndex],
-          nextLevelNodes[currentIndex + 1],
-        ]
+        nextLevelNodes[currentIndex - 1],
+        nextLevelNodes[currentIndex],
+        nextLevelNodes[currentIndex + 1],
+      ]
       : []
   );
 

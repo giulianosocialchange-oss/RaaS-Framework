@@ -1,17 +1,43 @@
-import { overpassRequest } from "@/services/overpass";
-import { heliportTagFilter } from "@/services/overpass/filters/tags";
 import type { CenterOutput } from "@/services/overpass/types/center";
 import type { NodeOutput } from "@/services/overpass/types/node";
 import type { Coordinate } from "ol/coordinate";
+import { getDistance } from "ol/sphere";
+
+import type { UnifiedOverpassData } from "@/services/overpass/unified/index";
 
 export const searchHeliportNearby = async (
   node: Coordinate,
-  distance: number = 100
-) => {
-  const point = `${node[1]},${node[0]}`;
+  distance: number = 100,
+  overpassData: UnifiedOverpassData
+): Promise<(NodeOutput | CenterOutput)[]> => {
 
-  // https://dev.overpass-api.de/overpass-doc/en/full_data/osm_types.html
-  const query = `nwr(around:${distance},${point})${heliportTagFilter};out center skel;`;
+  const results: (NodeOutput | CenterOutput)[] = [];
 
-  return overpassRequest<CenterOutput | NodeOutput>(query);
+  // Zittiamo TypeScript dicendogli di non controllare la struttura esatta qui
+  const data = overpassData as any;
+
+  // Controlliamo sia il plurale che il singolare per sicurezza!
+  const heliportsArray = data.heliports || data.heliport || [];
+
+  heliportsArray.forEach((element: any) => {
+    const lat = element.lat || (element.center && element.center.lat);
+    const lon = element.lon || (element.center && element.center.lon);
+
+    if (lat && lon) {
+      const heliportCoord: Coordinate = [lon, lat];
+
+      const dist = getDistance(node, heliportCoord);
+
+      if (dist <= distance) {
+        results.push({
+          type: element.type,
+          id: element.id,
+          lat: lat,
+          lon: lon,
+        } as NodeOutput);
+      }
+    }
+  });
+
+  return results;
 };

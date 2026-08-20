@@ -17,17 +17,40 @@ export const useLoadCurrentWeather = () => {
     // Recupero i dati metereologici
     const weather = await fetchWeather(coordinate);
 
-    // Registro i valori
-    setWeatherIcon(getWeatherIcon(weather.weather[0].icon));
+    // Controllo di sicurezza difensivo: se la chiamata API fallisce o non restituisce dati validi
+    if (!weather || !weather.weather || !weather.weather[0]) {
+      console.warn(
+        "[Meteo API] Dati meteo non disponibili o chiave API non valida. Applico valori di fallback sicuri.",
+        weather
+      );
 
-    setTemperature(weather.main.temp);
+      // Valori di default per evitare il blocco della dashboard
+      setWeatherIcon(getWeatherIcon("01d"));
+      setTemperature(20);
+      setWindSpeed(0);
+      setWindDirection(0);
+      setFallingRain(0);
+      setFallingSnow(0);
 
-    setWindSpeed(weather.wind.speed);
-    setWindDirection(weather.wind.deg);
+      return weather;
+    }
 
-    if (weather.rain) setFallingRain(weather.rain["1h"]);
+    // Se i dati sono presenti e validi, registro i valori reali
+    setWeatherIcon(getWeatherIcon(weather.weather[0].icon || "01d"));
+    setTemperature(weather.main?.temp ?? 20);
 
-    if (weather.snow) setFallingSnow(weather.snow["1h"]);
+    if (weather.wind) {
+      setWindSpeed(weather.wind.speed ?? 0);
+      setWindDirection(weather.wind.deg ?? 0);
+    }
+
+    if (weather.rain) {
+      setFallingRain(weather.rain["1h"] ?? 0);
+    }
+
+    if (weather.snow) {
+      setFallingSnow(weather.snow["1h"] ?? 0);
+    }
 
     // Restituisco i valori per confronto immediato
     return weather;

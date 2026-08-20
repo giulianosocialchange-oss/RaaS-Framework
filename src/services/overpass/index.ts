@@ -10,13 +10,24 @@ import type {
 export async function overpassRequest<T extends OverpassResponseElement>(
   query: string
 ) {
-  const payload = `[out:json];${query}`;
+  // Aggiunto [timeout:25] nel preambolo Overpass QL
+  const payload = `[out:json][timeout:25];${query}`;
   console.debug("Overpass API Request", payload);
 
-  const result = await fetch(
-    `/api/overpass?data=${encodeURIComponent(payload)}`
-  );
+  try {
+    const result = await fetch(
+      `/api/overpass?data=${encodeURIComponent(payload)}`
+    );
 
-  const response: OverpassResponse<T> = await result.json();
-  return response.elements;
+    if (!result.ok) {
+      console.warn(`[Overpass] Chiamata fallita con stato HTTP ${result.status}: ${result.statusText}`);
+      return [] as T[];
+    }
+
+    const response: OverpassResponse<T> = await result.json();
+    return response.elements || [];
+  } catch (error) {
+    console.error("[Overpass] Errore di rete o parsing JSON:", error);
+    return [] as T[];
+  }
 }

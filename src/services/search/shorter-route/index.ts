@@ -6,17 +6,22 @@ import { searchTrailheadsNearby } from "@/services/requests/trailheads/nearby";
 import type { Coordinate } from "ol/coordinate";
 import { getDistance } from "ol/sphere";
 
+// 1. Aggiungiamo l'import per il nostro tipo di dati unificato
+import type { UnifiedOverpassData } from "@/services/overpass/unified/index";
+
 export async function searchShorterRoute(
   startRoadPoint: Coordinate,
   endFootPoint: Coordinate,
-  maxDistance: number = 5000
+  overpassData: UnifiedOverpassData, // 2. Inseriamo i dati di Overpass come 3° parametro
+  maxDistance: number = 5000         // 3. Spostiamo la distanza massima come 4° parametro opzionale
 ) {
   try {
-    // Recuperi gli attacchi dei sentieri nei ditorni
+    // 4. Passiamo i nostri dati in memoria alla ricerca dei sentieri!
     const trailheads = await searchTrailheadsNearby(
       endFootPoint,
       maxDistance,
-      "noids"
+      "noids",
+      overpassData
     );
 
     // Limito ai nodi più vicini
@@ -66,10 +71,10 @@ export async function searchShorterRoute(
     );
 
     // Restituisco percorso più veloce
-    const shorterPath = directions.reduce(
-      (shorterPath, path) =>
-        path == null || (shorterPath && shorterPath.duration < path.duration)
-          ? shorterPath
+    const shorterPath = directions.reduce<any>(
+      (shorter, path) =>
+        path == null || (shorter && shorter.duration < path.duration)
+          ? shorter
           : path,
       null
     );

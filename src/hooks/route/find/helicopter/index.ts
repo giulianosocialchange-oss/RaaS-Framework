@@ -1,17 +1,35 @@
 import { useHelicopterRouteContext } from "@/contexts/route/helicopter/hooks";
 import { useShowErrorMessage } from "@/hooks/error/message";
-import { getElevations } from "@/services/gmaps/elevation";
 import { calculateHelicopterTimeEstimation } from "@/services/helicopter/time-estimation";
 import { createRouteFeatures } from "@/services/map/features/route";
 import { createWayFeatures } from "@/services/map/features/way";
-import { getRouteDuration } from "@/services/openroute/directions/duration";
-import { getFootDirections } from "@/services/openroute/directions/foot";
 import type { OpenWeatherResponse } from "@/services/openweather/types/weather";
 import { calculateElevationGain } from "@/services/path/way/elevation-gain";
 import { calculateWayLength } from "@/services/path/way/length";
 import { searchCloserHelipadPoint } from "@/services/search/closer-helipad";
 import { searchCloserHeliportPoint } from "@/services/search/closer-heliport";
 import type { Coordinate } from "ol/coordinate";
+import { getDistance } from "ol/sphere"; // Calcolo in locale
+
+// Il nostro tipo unificato
+import type { UnifiedOverpassData } from "@/services/overpass/unified/index";
+
+// FUNZIONE HELPER: Crea linea retta simulata al posto di usare OpenRouteService
+const createStraightLineGeoJSON = (start: Coordinate, end: Coordinate) => {
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: [start, end],
+        },
+      },
+    ],
+  };
+};
 
 export const useFindHelicopterRoute = () => {
   const showError = useShowErrorMessage();
@@ -29,23 +47,25 @@ export const useFindHelicopterRoute = () => {
   return async function (
     fromPoint: Coordinate,
     toPoint: Coordinate,
-    weather?: OpenWeatherResponse
+    weather: OpenWeatherResponse | undefined,
+    overpassData: UnifiedOverpassData // Dati in ingresso
   ) {
     try {
-      // Cerco elisuperfici vicine
+      // Passiamo i dati ai moduli di ricerca
       const [closerHeliport, closerHelipad] = await Promise.all([
-        searchCloserHeliportPoint(fromPoint),
-        searchCloserHelipadPoint(toPoint),
+        searchCloserHeliportPoint(fromPoint, overpassData),
+        searchCloserHelipadPoint(toPoint, overpassData),
       ]);
 
       // Definisco volo
       setHeliportCoords(closerHeliport);
       setHelipadCoords(closerHelipad);
       setFlightPath(createWayFeatures([closerHeliport, closerHelipad]));
-      // Calcolo le altitudini
-      const elevations = await getElevations([closerHeliport, closerHelipad]);
-      closerHeliport[2] = elevations[0].elevation;
-      closerHelipad[2] = elevations[1].elevation;
+
+      // MOCK ALTITUDINI: Senza chiamare Google Maps, impostiamo quote standard/nulle
+      closerHeliport[2] = closerHeliport[2] || 0;
+      closerHelipad[2] = closerHelipad[2] || 0;
+
       // Calcolo tempo di percorrenza
       const elevation = calculateElevationGain(
         closerHeliport[2],
@@ -59,10 +79,14 @@ export const useFindHelicopterRoute = () => {
       setFlightDuration(calculateHelicopterTimeEstimation(distance, weather));
       setFlightElevationGain(elevation);
 
-      // Definisco sentiero
-      const trailDirections = await getFootDirections(closerHelipad, toPoint);
+      // Definisco sentiero in locale (Senza OpenRouteService)
+      const footDistance = getDistance(closerHelipad, toPoint);
+      const trailDirections = createStraightLineGeoJSON(closerHelipad, toPoint) as any;
+
       setTrailPath(createRouteFeatures(trailDirections));
-      setTrailDuration(getRouteDuration(trailDirections));
+      setTrailDuration(footDistance / 1.1); // Stimiamo andatura a 1.1 m/s in fuoristrada
+
+      toPoint[2] = toPoint[2] || 0;
       setTrailElevationGain(
         calculateElevationGain(closerHelipad[2], toPoint[2])
       );

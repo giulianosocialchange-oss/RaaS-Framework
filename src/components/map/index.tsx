@@ -13,6 +13,7 @@ import { coordinateTransform } from "@/services/map/coordinate/transform";
 import { createNodeFeatures } from "@/services/map/features/node";
 import { setFeaturesStyle } from "@/services/map/features/style";
 import { createWayFeatures } from "@/services/map/features/way";
+import { fetchAllOverpassData } from "@/services/overpass/unified/index";
 import {
   helipadPointStyle,
   heliportPointStyle,
@@ -31,6 +32,7 @@ import { thunderforestCycleTileLayer } from "@/services/map/layer/thunderforest/
 import { createVectorSource } from "@/services/map/source/vector";
 import type { Feature } from "ol";
 import type { Geometry } from "ol/geom";
+// @ts-ignore
 import "ol/ol.css";
 import { useEffect } from "react";
 
@@ -80,31 +82,51 @@ const MapComponent = ({
     zoom,
     layers: [thunderforestCycleTileLayer, nodesLayer, routesLayer, graphLayer],
     onClick(e) {
-      // Avvio il processo
       if (searching) return;
       onSearchStart();
+
+      // 1. Log coordinate grezze della mappa (OpenLayers)
+      console.log("%c[MAP CLICK] Coordinate grezze OpenLayers (EPSG:3857):", "color: #00ffff; font-weight: bold;", e.coordinate);
 
       // Ripristino mappa
       nodesLayer.getSource()?.clear();
       routesLayer.getSource()?.clear();
       graphLayer.getSource()?.clear();
 
-      // Assegno luogo dell'emergenza da raggiungere (in parallelo)
+      // 2. Trasformazione coordinate
       const emergencyCoords = coordinateTransform(e.coordinate);
+      console.log("%c[MAP CLICK] Coordinate trasformate per API esterne:", "color: #32cd32; font-weight: bold;", {
+        longitudine_X: emergencyCoords[0],
+        latitudine_Y: emergencyCoords[1],
+        arrayCompleto: emergencyCoords,
+      });
+
+      // Avvio chiamate asincrone
+      // 1. Una sola chiamata Overpass + Meteo OpenWeather
       Promise.all([
-        findOffroadRoute(emergencyCoords),
-        findCloserHospital(emergencyCoords),
+        fetchAllOverpassData(emergencyCoords),
         loadCurrentWeather(emergencyCoords),
       ])
-        .then(([trailEndCoords, hospitalCoords, weather]) =>
-          Promise.all([
-            findDriveRoute(hospitalCoords!, trailEndCoords!),
-            findHelicopterRoute(hospitalCoords!, trailEndCoords!, weather),
-          ])
-        )
-        .finally(() => {
-          onSearchEnd();
-        });
+        .then(async ([overpassData, weather]) => {
+          console.log("%c[DATI UNIFICATI IN MEMORIA]", "color: #00ff00", overpassData);
+
+          // 2. Troviamo i punti di raccordo passando i dati già scaricati
+          const trailEndCoords = await findOffroadRoute(emergencyCoords, overpassData);
+          const hospitalCoords = await findCloserHospital(emergencyCoords, overpassData);
+
+          // 3. Calcoliamo i percorsi finali con i nodi appena trovati
+          return Promise.all([
+            findDriveRoute(hospitalCoords!, trailEndCoords!, overpassData),
+            findHelicopterRoute(
+              hospitalCoords!,
+              trailEndCoords!,
+              weather || undefined,
+              overpassData
+            ),
+          ]);
+        })
+        .catch((err) => console.error("[ROUTING ERROR]", err))
+        .finally(() => onSearchEnd());
     },
   });
 

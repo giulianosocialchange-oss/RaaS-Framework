@@ -3,12 +3,19 @@ import { getCloserNode } from "@/services/path/way/closer-node";
 import { searchHeliportNearby } from "@/services/requests/heliport/nearby";
 import type { Coordinate } from "ol/coordinate";
 
-export async function searchCloserHeliportPoint(hospitalCoords: Coordinate) {
+// Importiamo il nostro tipo unificato
+import type { UnifiedOverpassData } from "@/services/overpass/unified/index";
+
+export async function searchCloserHeliportPoint(
+  hospitalCoords: Coordinate,
+  overpassData: UnifiedOverpassData // Aggiungiamo i dati in memoria
+) {
   try {
-    // Cerco elisuperfici vicine
-    const heliports = await searchHeliportNearby(hospitalCoords, 5000);
+    // Passiamo overpassData alla ricerca per evitare chiamate di rete
+    const heliports = await searchHeliportNearby(hospitalCoords, 5000, overpassData);
+
     if (!heliports.length)
-      throw new Error("Non sono state trovate eliporti nelle vicinanze");
+      throw new Error("Non sono stati trovati eliporti nelle vicinanze");
 
     // Scelgo il più vicino
     const heliportsCoords = heliports.map(parseCenterElement);
@@ -16,6 +23,6 @@ export async function searchCloserHeliportPoint(hospitalCoords: Coordinate) {
     return heliportNode.coordinate;
   } catch (error) {
     console.warn("Error searchCloserHeliportPoint:", error);
-    throw new Error("Non è stato possibile trovare l'eliporto più vicina");
+    throw new Error("Non è stato possibile trovare l'eliporto più vicino");
   }
 }

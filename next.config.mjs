@@ -1,8 +1,15 @@
 const env = process.env;
 
+console.log('[DEBUG ENV]', {
+	OPENWEATHER_URL: process.env.OPENWEATHER_API_URL,
+	OPENWEATHER_KEY: process.env.OPENWEATHER_API_KEY,
+	OPENROUTE_URL: process.env.OPENROUTE_API_URL,
+	OPENROUTE_KEY: process.env.OPENROUTE_API_KEY,
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async rewrites() {
+	async rewrites() {
 		return [
 			{
 				source: '/api/arcgis/:path*',

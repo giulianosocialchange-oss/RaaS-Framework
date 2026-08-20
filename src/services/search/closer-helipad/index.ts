@@ -3,10 +3,17 @@ import { getCloserNode } from "@/services/path/way/closer-node";
 import { searchHelipadNearby } from "@/services/requests/helipad/nearby";
 import type { Coordinate } from "ol/coordinate";
 
-export async function searchCloserHelipadPoint(emergencyCoords: Coordinate) {
+// Importiamo il nostro pacchetto dati in memoria
+import type { UnifiedOverpassData } from "@/services/overpass/unified/index";
+
+export async function searchCloserHelipadPoint(
+  emergencyCoords: Coordinate,
+  overpassData: UnifiedOverpassData // Aggiungiamo i dati
+) {
   try {
-    // Cerco elisuperfici vicine
-    const helipads = await searchHelipadNearby(emergencyCoords, 1000);
+    // Passiamo overpassData alla ricerca per evitare Internet
+    const helipads = await searchHelipadNearby(emergencyCoords, 1000, overpassData);
+
     if (!helipads.length)
       throw new Error("Non sono state trovate elisuperfici nelle vicinanze");
 
